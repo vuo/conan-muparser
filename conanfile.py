@@ -51,7 +51,6 @@ class MuParserConan(ConanFile):
                                           '--disable-samples',
                                           '--prefix=%s' % os.getcwd()])
                 autotools.make(args=['--quiet'])
-                autotools.make(target='install', args=['--quiet'])
 
     def package(self):
         self.copy('*.h', src='%s/include' % self.build_dir, dst='include/muParser')
