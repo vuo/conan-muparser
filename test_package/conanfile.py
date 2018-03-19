@@ -8,9 +8,8 @@ class MuParserTestConan(ConanFile):
         self.run('qbs -f "%s"' % self.source_folder)
 
     def imports(self):
-        self.copy('*',       src='bin', dst='bin')
-        self.copy('*.dylib', dst='lib', src='lib')
-        self.copy('*.so',    dst='lib', src='lib')
+        self.copy('*', src='bin', dst='bin')
+        self.copy('*', dst='lib', src='lib')
 
     def test(self):
         self.run('qbs run')
