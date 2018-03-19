@@ -53,7 +53,7 @@ class MuParserConan(ConanFile):
                 autotools.make(args=['--quiet'])
 
     def package(self):
-        self.copy('*.h', src='%s/include' % self.build_dir, dst='include/muParser')
+        self.copy('*.h', src='%s/include' % self.source_dir, dst='include/muParser')
         self.copy('libmuparser.dylib', src='%s/lib' % self.build_dir, dst='lib')
 
     def package_info(self):
