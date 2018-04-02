@@ -9,13 +9,23 @@ class MuParserConan(ConanFile):
     package_version = '2'
     version = '%s-%s' % (source_version, package_version)
 
-    requires = 'llvm/3.3-2@vuo/stable'
+    requires = 'llvm/3.3-2@vuo/stable', \
+               'vuoutils/1.0@vuo/stable'
     settings = 'os', 'compiler', 'build_type', 'arch'
     url = 'http://muparser.beltoforion.de/'
     license = 'http://beltoforion.de/article.php?a=muparser&hl=en&p=licence'
     description = 'A library for parsing mathematical expressions'
     source_dir = 'muparser-%s' % source_version
     build_dir = '_build'
+    libs = {
+        'muparser': 2,
+    }
+
+    def requirements(self):
+        if platform.system() == 'Linux':
+            self.requires('patchelf/0.10pre-1@vuo/stable')
+        elif platform.system() != 'Darwin':
+            raise Exception('Unknown platform "%s"' % platform.system())
 
     def source(self):
         tools.get('https://github.com/beltoforion/muparser/archive/v%s.tar.gz' % self.source_version,
@@ -24,6 +34,7 @@ class MuParserConan(ConanFile):
         self.run('mv %s/License.txt %s/%s.txt' % (self.source_dir, self.source_dir, self.name))
 
     def build(self):
+        import VuoUtils
         tools.mkdir(self.build_dir)
         with tools.chdir(self.build_dir):
             autotools = AutoToolsBuildEnvironment(self)
@@ -52,10 +63,17 @@ class MuParserConan(ConanFile):
                                           '--disable-samples',
                                           '--prefix=%s' % os.getcwd()])
                 autotools.make(args=['--quiet'])
+            with tools.chdir('lib'):
+                VuoUtils.fixLibs(self.libs, self.deps_cpp_info)
 
     def package(self):
+        if platform.system() == 'Darwin':
+            libext = 'dylib'
+        elif platform.system() == 'Linux':
+            libext = 'so'
+
         self.copy('*.h', src='%s/include' % self.source_dir, dst='include/muParser')
-        self.copy('libmuparser.dylib', src='%s/lib' % self.build_dir, dst='lib')
+        self.copy('libmuparser.%s' % libext, src='%s/lib' % self.build_dir, dst='lib')
 
         self.copy('%s.txt' % self.name, src=self.source_dir, dst='license')
 
