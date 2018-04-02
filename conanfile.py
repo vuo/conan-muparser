@@ -21,6 +21,8 @@ class MuParserConan(ConanFile):
         tools.get('https://github.com/beltoforion/muparser/archive/v%s.tar.gz' % self.source_version,
                   sha256='0666ef55da72c3e356ca85b6a0084d56b05dd740c3c21d26d372085aa2c6e708')
 
+        self.run('mv %s/License.txt %s/%s.txt' % (self.source_dir, self.source_dir, self.name))
+
     def build(self):
         tools.mkdir(self.build_dir)
         with tools.chdir(self.build_dir):
@@ -54,6 +56,8 @@ class MuParserConan(ConanFile):
     def package(self):
         self.copy('*.h', src='%s/include' % self.source_dir, dst='include/muParser')
         self.copy('libmuparser.dylib', src='%s/lib' % self.build_dir, dst='lib')
+
+        self.copy('%s.txt' % self.name, src=self.source_dir, dst='license')
 
     def package_info(self):
         self.cpp_info.libs = ['muparser']
