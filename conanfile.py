@@ -6,7 +6,7 @@ class MuParserConan(ConanFile):
     name = 'muparser'
 
     source_version = '2.2.5'
-    package_version = '1'
+    package_version = '2'
     version = '%s-%s' % (source_version, package_version)
 
     requires = 'llvm/3.3-1@vuo/stable'
