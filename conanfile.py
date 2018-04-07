@@ -64,6 +64,8 @@ class MuParserConan(ConanFile):
                                           '--prefix=%s' % os.getcwd()])
                 autotools.make(args=['--quiet'])
             with tools.chdir('lib'):
+                if platform.system() == 'Darwin':
+                    self.run('install_name_tool -change @rpath/libc++.dylib /usr/lib/libc++.1.dylib libmuparser.dylib')
                 VuoUtils.fixLibs(self.libs, self.deps_cpp_info)
 
     def package(self):
