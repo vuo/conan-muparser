@@ -1,25 +1,26 @@
-from conans import AutoToolsBuildEnvironment, ConanFile, tools
+from conans import ConanFile, CMake, tools
 import os
 import platform
 
 class MuParserConan(ConanFile):
     name = 'muparser'
 
-    source_version = '2.2.5'
-    package_version = '3'
+    source_version = '2.3.2'
+    package_version = '0'
     version = '%s-%s' % (source_version, package_version)
 
-    build_requires = 'llvm/3.3-5@vuo/stable', \
-               'vuoutils/1.0@vuo/stable'
+    build_requires = (
+        'llvm/5.0.2-1@vuo/stable',
+        'macos-sdk/11.0-0@vuo/stable',
+    )
     settings = 'os', 'compiler', 'build_type', 'arch'
     url = 'http://muparser.beltoforion.de/'
     license = 'http://beltoforion.de/article.php?a=muparser&hl=en&p=licence'
     description = 'A library for parsing mathematical expressions'
     source_dir = 'muparser-%s' % source_version
+
     build_dir = '_build'
-    libs = {
-        'muparser': 2,
-    }
+    install_dir = '_install'
 
     def requirements(self):
         if platform.system() == 'Linux':
@@ -29,44 +30,39 @@ class MuParserConan(ConanFile):
 
     def source(self):
         tools.get('https://github.com/beltoforion/muparser/archive/v%s.tar.gz' % self.source_version,
-                  sha256='0666ef55da72c3e356ca85b6a0084d56b05dd740c3c21d26d372085aa2c6e708')
+                  sha256='b35fc84e3667d432e3414c8667d5764dfa450ed24a99eeef7ee3f6647d44f301')
 
         self.run('mv %s/License.txt %s/%s.txt' % (self.source_dir, self.source_dir, self.name))
 
     def build(self):
-        import VuoUtils
+        cmake = CMake(self)
+        cmake.definitions['BUILD_SHARED_LIBS'] = True
+        cmake.definitions['ENABLE_OPENMP'] = False
+        cmake.definitions['ENABLE_SAMPLES'] = False
+        cmake.definitions['CONAN_DISABLE_CHECK_COMPILER'] = True
+        cmake.definitions['CMAKE_BUILD_TYPE'] = 'Release'
+        cmake.definitions['CMAKE_C_COMPILER'] = self.deps_cpp_info['llvm'].rootpath + '/bin/clang'
+        cmake.definitions['CMAKE_C_FLAGS'] = cmake.definitions['CMAKE_CXX_FLAGS'] = '-Oz'
+        cmake.definitions['CMAKE_INSTALL_PREFIX'] = '%s/%s' % (os.getcwd(), self.install_dir)
+        if platform.system() == 'Darwin':
+            cmake.definitions['CMAKE_OSX_ARCHITECTURES'] = 'x86_64;arm64'
+            cmake.definitions['CMAKE_OSX_DEPLOYMENT_TARGET'] = '10.11'
+            cmake.definitions['CMAKE_OSX_SYSROOT'] = self.deps_cpp_info['macos-sdk'].rootpath
+        cmake.definitions['CMAKE_CXX_COMPILER'] = self.deps_cpp_info['llvm'].rootpath + '/bin/clang++'
+
         tools.mkdir(self.build_dir)
         with tools.chdir(self.build_dir):
-            autotools = AutoToolsBuildEnvironment(self)
+            cmake.configure(source_dir='../%s' % self.source_dir,
+                            build_dir='.')
+            cmake.build()
+            cmake.install()
 
-            # The LLVM/Clang libs get automatically added by the `requires` line,
-            # but this package doesn't need to link with them.
-            autotools.libs = ['c++abi']
-
-            autotools.flags.append('-Oz')
-
+        with tools.chdir(self.install_dir):
             if platform.system() == 'Darwin':
-                autotools.flags.append('-mmacosx-version-min=10.10')
-                autotools.link_flags.append('-Wl,-headerpad_max_install_names')
-                autotools.link_flags.append('-Wl,-install_name,@rpath/libmuparser.dylib')
-
-            env_vars = {
-                'CC' : self.deps_cpp_info['llvm'].rootpath + '/bin/clang',
-                'CXX': self.deps_cpp_info['llvm'].rootpath + '/bin/clang++ -stdlib=libc++',
-            }
-            with tools.environment_append(env_vars):
-                autotools.configure(configure_dir='../%s' % self.source_dir,
-                                    build=False,
-                                    host=False,
-                                    args=['--quiet',
-                                          '--enable-shared',
-                                          '--disable-samples',
-                                          '--prefix=%s' % os.getcwd()])
-                autotools.make(args=['--quiet'])
-            with tools.chdir('lib'):
-                if platform.system() == 'Darwin':
-                    self.run('install_name_tool -change @rpath/libc++.dylib /usr/lib/libc++.1.dylib libmuparser.dylib')
-                VuoUtils.fixLibs(self.libs, self.deps_cpp_info)
+                self.run('install_name_tool -id @rpath/libmuparser.dylib lib/libmuparser.dylib')
+            elif platform.system() == 'Linux':
+                patchelf = self.deps_cpp_info['patchelf'].rootpath + '/bin/patchelf'
+                self.run('%s --set-soname libmuparser.so lib/libmuparser.so' % patchelf)
 
     def package(self):
         if platform.system() == 'Darwin':
@@ -74,8 +70,8 @@ class MuParserConan(ConanFile):
         elif platform.system() == 'Linux':
             libext = 'so'
 
-        self.copy('*.h', src='%s/include' % self.source_dir, dst='include/muParser')
-        self.copy('libmuparser.%s' % libext, src='%s/lib' % self.build_dir, dst='lib')
+        self.copy('*.h', src='%s/include' % self.install_dir, dst='include/muParser')
+        self.copy('libmuparser.%s' % libext, src='%s/lib' % self.install_dir, dst='lib')
 
         self.copy('%s.txt' % self.name, src=self.source_dir, dst='license')
 
